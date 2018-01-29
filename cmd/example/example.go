@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mindprince/gonvml"
+	"github.com/krobertson/gonvml"
 )
 
 func main() {
@@ -96,12 +96,12 @@ func main() {
 		}
 		fmt.Printf("\tpower.draw: %v\n", powerDraw)
 
-		averagePowerDraw, err := dev.AveragePowerUsage(10 * time.Second)
-		if err != nil {
-			fmt.Printf("\tdev.AveragePowerUsage() error: %v\n", err)
-			return
-		}
-		fmt.Printf("\taverage power.draw for last 10s: %v\n", averagePowerDraw)
+		// averagePowerDraw, err := dev.AveragePowerUsage(10 * time.Second)
+		// if err != nil {
+		// 	fmt.Printf("\tdev.AveragePowerUsage() error: %v\n", err)
+		// 	return
+		// }
+		// fmt.Printf("\taverage power.draw for last 10s: %v\n", averagePowerDraw)
 
 		averageGPUUtilization, err := dev.AverageGPUUtilization(10 * time.Second)
 		if err != nil {
@@ -110,5 +110,12 @@ func main() {
 		}
 		fmt.Printf("\taverage utilization.gpu for last 10s: %v\n", averageGPUUtilization)
 		fmt.Println()
+
+		clocks, err := dev.GetSupportedMemoryClocks()
+		if err != nil {
+			fmt.Printf("\tdev.GetSupportedMemoryClocks() error: %v\n", err)
+			return
+		}
+		fmt.Printf("\tmemory.clocks: %v\n", clocks)
 	}
 }

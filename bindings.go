@@ -127,6 +127,30 @@ nvmlReturn_t nvmlDeviceGetFanSpeed(nvmlDevice_t device, unsigned int *speed) {
   return nvmlDeviceGetFanSpeedFunc(device, speed);
 }
 
+nvmlReturn_t (*nvmlDeviceSetApplicationsClocksFunc)(nvmlDevice_t device, unsigned int memoryMhz, unsigned int coreMhz);
+nvmlReturn_t nvmlDeviceSetApplicationsClocks(nvmlDevice_t device, unsigned int memoryMhz, unsigned int coreMhz) {
+  if (nvmlDeviceSetApplicationsClocksFunc == NULL) {
+    return NVML_ERROR_FUNCTION_NOT_FOUND;
+  }
+  return nvmlDeviceSetApplicationsClocksFunc(device, memoryMhz, coreMhz);
+}
+
+nvmlReturn_t (*nvmlDeviceSetPowerManagementLimitFunc)(nvmlDevice_t device, unsigned int milliwatts);
+nvmlReturn_t nvmlDeviceSetPowerManagementLimit(nvmlDevice_t device, unsigned int milliwatts) {
+  if (nvmlDeviceSetPowerManagementLimitFunc == NULL) {
+    return NVML_ERROR_FUNCTION_NOT_FOUND;
+  }
+  return nvmlDeviceSetPowerManagementLimitFunc(device, milliwatts);
+}
+
+nvmlReturn_t (*nvmlDeviceGetSupportedMemoryClocksFunc)(nvmlDevice_t device, unsigned int* count, unsigned int* clocksMHz);
+nvmlReturn_t nvmlDeviceGetSupportedMemoryClocks(nvmlDevice_t device, unsigned int* count, unsigned int* clocksMHz) {
+  if (nvmlDeviceGetSupportedMemoryClocksFunc == NULL) {
+    return NVML_ERROR_FUNCTION_NOT_FOUND;
+  }
+  return nvmlDeviceGetSupportedMemoryClocksFunc(device, count, clocksMHz);
+}
+
 nvmlReturn_t (*nvmlDeviceGetSamplesFunc)(nvmlDevice_t device, nvmlSamplingType_t type, unsigned long long lastSeenTimeStamp, nvmlValueType_t *sampleValType, unsigned int *sampleCount, nvmlSample_t *samples);
 
 // Loads the "libnvidia-ml.so.1" shared library.
@@ -195,6 +219,18 @@ nvmlReturn_t nvmlInit_dl(void) {
   }
   nvmlDeviceGetSamplesFunc = dlsym(nvmlHandle, "nvmlDeviceGetSamples");
   if (nvmlDeviceGetSamplesFunc == NULL) {
+    return NVML_ERROR_FUNCTION_NOT_FOUND;
+  }
+  nvmlDeviceSetApplicationsClocksFunc = dlsym(nvmlHandle, "nvmlDeviceSetApplicationsClocks");
+  if (nvmlDeviceSetApplicationsClocksFunc == NULL) {
+    return NVML_ERROR_FUNCTION_NOT_FOUND;
+  }
+  nvmlDeviceSetPowerManagementLimitFunc = dlsym(nvmlHandle, "nvmlDeviceSetPowerManagementLimit");
+  if (nvmlDeviceSetPowerManagementLimitFunc == NULL) {
+    return NVML_ERROR_FUNCTION_NOT_FOUND;
+  }
+  nvmlDeviceGetSupportedMemoryClocksFunc = dlsym(nvmlHandle, "nvmlDeviceGetSupportedMemoryClocks");
+  if (nvmlDeviceGetSupportedMemoryClocksFunc == NULL) {
     return NVML_ERROR_FUNCTION_NOT_FOUND;
   }
   nvmlReturn_t result = nvmlInitFunc();
@@ -289,6 +325,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	// "unsafe"
 )
 
 const (
@@ -473,4 +510,50 @@ func (d Device) FanSpeed() (uint, error) {
 	var n C.uint
 	r := C.nvmlDeviceGetFanSpeed(d.dev, &n)
 	return uint(n), errorString(r)
+}
+
+func (d Device) GetSupportedMemoryClocks() ([]uint, error) {
+	if C.nvmlHandle == nil {
+		return nil, errLibraryNotLoaded
+	}
+	var count C.uint
+	var clocks C.uint
+	// clocksptr := unsafe.Pointer(&clocks)
+
+	r := C.nvmlDeviceGetSupportedMemoryClocks(d.dev, &count, &clocks)
+	fmt.Printf("Count1 %d\n", count)
+
+	if r != C.NVML_ERROR_INSUFFICIENT_SIZE {
+		return []uint{}, errorString(r)
+	}
+
+	clocks2 := make([]C.uint, count)
+	r = C.nvmlDeviceGetSupportedMemoryClocks(d.dev, &count, &clocks2[0])
+
+	fmt.Printf("Count2 %d\n", count)
+	fmt.Printf("Clocks %+v\n", clocks2)
+
+	return []uint{}, errorString(r)
+}
+
+// SetClocks configures the speed of the memory and GPU core.
+func (d Device) SetClocks(memoryMhz, coreMhz int) error {
+	if C.nvmlHandle == nil {
+		return errLibraryNotLoaded
+	}
+	umemory := C.uint(memoryMhz)
+	ucore := C.uint(coreMhz)
+	r := C.nvmlDeviceSetApplicationsClocks(d.dev, umemory, ucore)
+	return errorString(r)
+}
+
+// SetPowerLimit configures the amount of power (in watts) the device will be
+// allowed to use.
+func (d Device) SetPowerLimit(watts int) error {
+	if C.nvmlHandle == nil {
+		return errLibraryNotLoaded
+	}
+	milliwatts := C.uint(watts * 1000)
+	r := C.nvmlDeviceSetPowerManagementLimit(d.dev, milliwatts)
+	return errorString(r)
 }
